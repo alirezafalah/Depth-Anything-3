@@ -17,7 +17,8 @@
 #   Vehicle frame: X=fwd, Y=left, Z=up (rear-axle origin).
 
 # ========================== dataset ==========================
-dataset_dir: "/home/CW01/uik07077/data/4DGT/ORIGINAL_2026.02.05_at_06.41.13_camera-mi_9060"
+# Point at the SHARED scene folder. Outputs land at <dataset_dir>/DA3_output/<run_name>/.
+dataset_dir: "/ws/shared/project-data/4DGT/ORIGINAL_2026.02.05_at_06.41.13_camera-mi_9060"
 cameras: [front, right, left, rear]   # subset of [front,right,left,rear]; ORDER = interleave order
 
 fps_in: 30.0
@@ -58,7 +59,6 @@ ref_view_strategy_loop: saddle_balanced  # ref-view picker for loop-closure chun
 loop_enable: false              # SLAM-style loop closure; needs SALAD weights at da3_streaming/weights/dino_salad.ckpt
 
 # IRLS = Iteratively Reweighted Least Squares for the per-pair Sim3 fit.
-# Bigger delta = more outlier-tolerant; more iters = slower but tighter.
 irls_delta: 0.1
 irls_max_iters: 5
 irls_tol: 1.0e-9
@@ -84,7 +84,8 @@ extrinsics_source: camera_params.json
 use_ray_pose: false              # ray-based pose head vs camera decoder; sometimes helps on jittery seqs
 
 # ========================== exports ==========================
-export_pointcloud: true          # writes glb (single-shot) / pointcloud.ply symlink (streaming)
+export_pointcloud: true          # back-projected, full-detail pointcloud.ply (single-shot, BOTH-modes-aware)
+export_glb: false                # DA3's built-in scene.glb (single-shot only; same model output)
 export_3dgs: false               # writes gs_ply/*.ply; needs gsplat installed and giant/nested model
 export_3dgs_video: false         # writes gs_video/*.mp4; needs gsplat
 export_extras: []                # extra DA3 formats; choose any of: [npz, depth_vis, feat_vis, colmap]
@@ -93,7 +94,25 @@ conf_thresh_percentile: 40.0     # GLB only — drop pixels below this confidenc
 num_max_points: 1000000          # GLB only — hard cap on points (uniformly downsampled)
 feat_vis_fps: 15                 # output fps if "feat_vis" in export_extras
 
+# ========================== back-projection (single-shot) ==========================
+# Drives pointcloud.ply. Higher quality than DA3's GLB exporter — see README.
+backproj_downsample: 2           # pixel stride (1=full detail, 2=quarter density, 4=sparse)
+backproj_conf_percentile: 30.0   # drop bottom-X% confidence per view (0=keep all)
+
+# ========================== TSDF fusion (single-shot) ==========================
+# Drives pointcloud_tsdf.ply. THE big quality bump — Open3D ScalableTSDFVolume
+# fuses per-view depth maps so contradictions average out and free-space carves.
+export_tsdf: false               # set true to fuse all views into a TSDF volume
+tsdf_voxel: 0.05                 # metres; smaller = more detail, more RAM
+tsdf_trunc: 0.20                 # metres; surface bandwidth (~ 4*voxel)
+
+# ========================== diagnostics ==========================
+export_pointcloud_by_cam: false  # writes pointcloud_by_cam.ply (red=front, green=rear, blue=left, yellow=right)
+final_voxel: 0.0                 # optional voxel downsample of merged ply (0=off; 0.02 keeps quality, halves size)
+
 # ========================== bookkeeping ==========================
-run_name: ""   # empty = auto from scene + mode + cams + fps + duration + priors + chunk/overlap
-output_root: "~/data/4DGT/da3_streaming_outputs"
-input_root:  "~/data/4DGT/da3_streaming_inputs"
+run_name: ""                     # empty = auto from scene + mode + cams + fps + duration + priors + chunk/overlap
+# Output dir = <output_root>/<run_name> if output_root is set, else <dataset_dir>/DA3_output/<run_name>.
+# Leave empty to let outputs land beside camera_params.json + pinhole/ in the scene.
+output_root: ""
+input_root:  ""

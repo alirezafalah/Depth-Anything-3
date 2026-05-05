@@ -84,7 +84,8 @@ class RunConfig:
     use_ray_pose: bool = False                  # ray-based pose head vs camera decoder
 
     # --- exports ---
-    export_pointcloud: bool = True
+    export_pointcloud: bool = True             # back-projected pointcloud.ply (BOTH modes)
+    export_glb: bool = False                   # DA3's built-in glTF (single-shot only; same model output as ply)
     export_3dgs: bool = False
     export_3dgs_video: bool = False
     # Extra DA3 export formats. Allowed: "npz", "depth_vis", "feat_vis", "colmap".
@@ -95,10 +96,27 @@ class RunConfig:
     num_max_points: int = 1_000_000            # GLB only
     feat_vis_fps: int = 15                     # only used if "feat_vis" in export_extras
 
+    # --- back-projection (single-shot) — produces pointcloud.ply ---
+    backproj_downsample: int = 2               # pixel stride for back-projection (1=full, 2=quarter, ...)
+    backproj_conf_percentile: float = 30.0     # drop bottom-X% confidence per view (0=keep all)
+
+    # --- TSDF fusion (single-shot) — produces pointcloud_tsdf.ply ---
+    export_tsdf: bool = False
+    tsdf_voxel: float = 0.05                   # metres; smaller = more detail, more RAM
+    tsdf_trunc: float = 0.20                   # metres; surface bandwidth (~ 4×voxel)
+
+    # --- diagnostics ---
+    export_pointcloud_by_cam: bool = False     # tinted PLY (red=front, green=rear, blue=left, yellow=right)
+    final_voxel: float = 0.0                   # optional voxel downsample of merged ply (0=off)
+
     # --- bookkeeping ---
     run_name: str = ""
-    output_root: str = str(DEFAULT_OUTPUT_ROOT)
-    input_root: str = str(DEFAULT_INPUT_ROOT)
+    # Where to write outputs and stage inputs. Empty string = put both inside the
+    # dataset_dir itself (preferred): outputs go to <dataset_dir>/DA3_output/<run_name>/
+    # and staged frames go to <dataset_dir>/DA3_output/<run_name>/staged_images/.
+    # Set to a path to override (e.g. when /ws/shared is read-only).
+    output_root: str = ""
+    input_root: str = ""
 
     def __post_init__(self) -> None:
         if not self.run_name:
@@ -195,12 +213,18 @@ class RunConfig:
     # derived paths
     # ------------------------------------------------------------------ #
     @property
-    def staged_dir(self) -> Path:
-        return Path(self.input_root).expanduser() / self.run_name
+    def run_dir(self) -> Path:
+        """Where outputs go. Defaults to <dataset_dir>/DA3_output/<run_name>/."""
+        if self.output_root:
+            return Path(self.output_root).expanduser() / self.run_name
+        return Path(self.dataset_dir).expanduser() / "DA3_output" / self.run_name
 
     @property
-    def run_dir(self) -> Path:
-        return Path(self.output_root).expanduser() / self.run_name
+    def staged_dir(self) -> Path:
+        """Where staged frames go. Defaults to run_dir/staged_images/."""
+        if self.input_root:
+            return Path(self.input_root).expanduser() / self.run_name
+        return self.run_dir / "staged_images"
 
     def stride(self) -> int:
         s = max(1, round(self.fps_in / max(self.fps_out, 1e-6)))

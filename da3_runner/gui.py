@@ -51,8 +51,11 @@ def build_cfg(*args) -> RunConfig:
         "pointcloud_sample_ratio", "pointcloud_conf_coef",
         "delete_temp_files", "save_debug_info", "save_depth_conf_result",
         "use_known_intrinsics", "use_known_extrinsics", "use_ray_pose",
-        "export_pointcloud", "export_3dgs", "export_3dgs_video", "export_extras",
+        "export_pointcloud", "export_glb", "export_3dgs", "export_3dgs_video", "export_extras",
         "show_cameras", "conf_thresh_percentile", "num_max_points", "feat_vis_fps",
+        "backproj_downsample", "backproj_conf_percentile",
+        "export_tsdf", "tsdf_voxel", "tsdf_trunc",
+        "export_pointcloud_by_cam", "final_voxel",
         "run_name",
     ]
     d = dict(zip(keys, args))
@@ -224,7 +227,8 @@ def main():
                 )
 
                 gr.Markdown("### Exports")
-                export_pointcloud = gr.Checkbox(label="export_pointcloud (glb)", value=True)
+                export_pointcloud = gr.Checkbox(label="export_pointcloud (back-projected ply)", value=True)
+                export_glb = gr.Checkbox(label="export_glb (DA3's scene.glb)", value=False)
                 export_3dgs = gr.Checkbox(label="export_3dgs (needs gsplat)", value=False)
                 export_3dgs_video = gr.Checkbox(label="export_3dgs_video (needs gsplat)", value=False)
                 export_extras = gr.CheckboxGroup(
@@ -244,6 +248,29 @@ def main():
                         label="feat_vis_fps", value=15, precision=0,
                     )
 
+                gr.Markdown("#### Back-projection (single-shot pointcloud.ply)")
+                with gr.Row():
+                    backproj_downsample = gr.Number(
+                        label="backproj_downsample (px stride)", value=2, precision=0,
+                    )
+                    backproj_conf_percentile = gr.Number(
+                        label="backproj_conf_percentile (drop bottom-X%)", value=30.0,
+                    )
+
+                gr.Markdown("#### TSDF fusion (single-shot pointcloud_tsdf.ply)")
+                export_tsdf = gr.Checkbox(label="export_tsdf", value=False)
+                with gr.Row():
+                    tsdf_voxel = gr.Number(label="tsdf_voxel (m)", value=0.05)
+                    tsdf_trunc = gr.Number(label="tsdf_trunc (m)", value=0.20)
+
+                gr.Markdown("#### Diagnostics")
+                export_pointcloud_by_cam = gr.Checkbox(
+                    label="export_pointcloud_by_cam (per-cam tinted ply)", value=False,
+                )
+                final_voxel = gr.Number(
+                    label="final_voxel (downsample merged ply, 0=off)", value=0.0,
+                )
+
                 gr.Markdown("### Bookkeeping")
                 run_name = gr.Textbox(label="run_name (empty = auto)", value="")
 
@@ -259,8 +286,11 @@ def main():
             pointcloud_sample_ratio, pointcloud_conf_coef,
             delete_temp_files, save_debug_info, save_depth_conf_result,
             use_known_intrinsics, use_known_extrinsics, use_ray_pose,
-            export_pointcloud, export_3dgs, export_3dgs_video, export_extras,
+            export_pointcloud, export_glb, export_3dgs, export_3dgs_video, export_extras,
             show_cameras, conf_thresh_percentile, num_max_points, feat_vis_fps,
+            backproj_downsample, backproj_conf_percentile,
+            export_tsdf, tsdf_voxel, tsdf_trunc,
+            export_pointcloud_by_cam, final_voxel,
             run_name,
         ]
 

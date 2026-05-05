@@ -1,6 +1,6 @@
-# streaming, 4 cameras.
+# Dynamic scene, streaming, 4 cameras.
 # 15s @ 5fps × 4 cams = 300 frames -> chunk_size=80, overlap=40 (both /4).
-dataset_dir: "/home/CW01/uik07077/data/4DGT/ORIGINAL_2026.02.13_at_04.22.15_camera-mi_9060"
+dataset_dir: "/ws/shared/project-data/4DGT/ORIGINAL_2026.02.13_at_04.22.15_camera-mi_9060"
 cameras: [front, right, left, rear]
 
 fps_in: 30.0
@@ -23,6 +23,10 @@ align_lib: torch
 ref_view_strategy: saddle_balanced
 loop_enable: false
 
+# Streaming pointcloud merge — these are the big knobs for ply density.
+pointcloud_sample_ratio: 0.015
+pointcloud_conf_coef: 0.75
+
 use_known_intrinsics: false
 
 export_pointcloud: true
@@ -30,5 +34,5 @@ export_3dgs: false
 export_3dgs_video: false
 
 run_name: ""
-output_root: "~/data/4DGT/da3_streaming_outputs"
-input_root:  "~/data/4DGT/da3_streaming_inputs"
+output_root: ""        # empty = write to <dataset_dir>/DA3_output/<run_name>/
+input_root: ""

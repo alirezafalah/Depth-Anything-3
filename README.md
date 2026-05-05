@@ -108,26 +108,43 @@ DA3_GUI_SHARE=1 python -m da3_runner.gui
 
 ## Outputs
 
-Each run writes to `~/data/4DGT/da3_streaming_outputs/<run_name>/`:
+By default each run writes to `<dataset_dir>/DA3_output/<run_name>/` (i.e.
+co-located with `camera_params.json` and `pinhole/`). Set `output_root` in the
+YAML to override. Layout:
 
 ```
-<run_name>/
-├── manifest.json            # full RunConfig + git SHA + GPU + n_frames
-├── camera_poses.txt         # one row per frame, 16 floats of 4x4 cam-to-world (BOTH modes)
-├── intrinsic.txt            # one row per frame: fx fy cx cy (BOTH modes)
-├── pointcloud.ply           # CloudCompare/MeshLab-friendly (BOTH modes; single-shot derives from scene.glb)
-├── scene.glb                # single-shot only — same points as pointcloud.ply, glTF container
-├── gs_ply/                  # only if export_3dgs=true
-├── gs_video/                # only if export_3dgs_video=true
-└── (streaming) pcd/, results_output/, _tmp_results_*/, streaming_config.yaml
+<dataset_dir>/DA3_output/<run_name>/
+├── manifest.json              # full RunConfig + git SHA + GPU + n_frames
+├── camera_poses.txt           # one row per frame, 16 floats of 4x4 cam-to-world (BOTH modes)
+├── intrinsic.txt              # one row per frame: fx fy cx cy (BOTH modes)
+├── pointcloud.ply             # back-projected, full-detail (single-shot)
+├── pointcloud_tsdf.ply        # if export_tsdf=true (single-shot) — TSDF-fused, smoothest
+├── pointcloud_by_cam.ply      # if export_pointcloud_by_cam=true — per-cam tinted, diagnostic
+├── scene.glb                  # if export_glb=true (single-shot) — DA3's built-in glTF
+├── staged_images/             # interleaved input frames (front bumper black-filled, others symlinked)
+├── gs_ply/, gs_video/         # if export_3dgs / export_3dgs_video
+└── (streaming) pcd/combined_pcd.ply, pointcloud.ply (symlink), results_output/, streaming_config.yaml
 ```
 
-`pointcloud.ply` and `scene.glb` carry the **same** vertices and colors — only
-the container differs. Open the `.ply` in CloudCompare/MeshLab; the `.glb` opens
-in any glTF viewer (e.g. https://gltf-viewer.donmccurdy.com).
+Open `.ply` files in CloudCompare or MeshLab; `.glb` opens in any glTF viewer
+(e.g. https://gltf-viewer.donmccurdy.com).
 
-Staged inputs go to `~/data/4DGT/da3_streaming_inputs/<run_name>/` —
-inspectable, re-runnable without regenerating.
+## Why three different `.ply` files?
+
+The single-shot runner can emit up to three point clouds from the same DA3
+inference, processed differently:
+
+| File | How it's built | When to use |
+|---|---|---|
+| `pointcloud.ply` | Back-project every depth pixel (stride `backproj_downsample`, drop bottom `backproj_conf_percentile`% per view) into world space, concatenate all views. | Default. Most detail; some duplication where cameras overlap. |
+| `pointcloud_tsdf.ply` | Open3D `ScalableTSDFVolume`: every per-view depth is integrated into a truncated signed distance field at `tsdf_voxel` resolution; surfaces from all 4 cameras agree, contradictions average out, free-space gets carved. | Cleanest, most surface-like. Best for visualization and downstream meshing. |
+| `pointcloud_by_cam.ply` | Same back-projection, but every point is tinted by its source camera (red=front, green=rear, blue=left, yellow=right). | Diagnostic. Spot misalignment between cameras instantly. |
+
+This is the same post-processing approach as the reference pipeline at
+`~/4dgt/scripts/da3_multiview_pointcloud.py` — the call to `model.inference()`
+is identical to ours; the quality difference vs. DA3's built-in `scene.glb` is
+**all** in this post-proc step (TSDF fusion + per-view back-projection vs. global
+percentile + 1M-point cap).
 
 ## Intrinsics A/B
 

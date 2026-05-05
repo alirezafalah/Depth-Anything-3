@@ -11,12 +11,13 @@ import numpy as np
 
 from .config import RunConfig
 from .intrinsics import build_extrinsics_array, build_intrinsics_array
+from .postprocess import write_pointcloud, write_pointcloud_by_cam, write_tsdf
 from .prepare_inputs import stage_inputs
 
 
 def _build_export_format(cfg: RunConfig) -> str:
     parts: list[str] = ["mini_npz"]
-    if cfg.export_pointcloud:
+    if cfg.export_glb:
         parts.append("glb")
     if cfg.export_3dgs:
         parts.append("gs_ply")
@@ -26,40 +27,6 @@ def _build_export_format(cfg: RunConfig) -> str:
         if extra not in parts:
             parts.append(extra)
     return "-".join(parts)
-
-
-def _glb_to_ply(glb_path: Path, ply_path: Path) -> None:
-    """Extract the point cloud from scene.glb and write a CloudCompare-friendly .ply.
-
-    Same vertices and colors as the GLB — just a different container so non-glTF
-    tools (CloudCompare, MeshLab) can open it directly.
-    """
-    if not glb_path.exists():
-        return
-    try:
-        import trimesh
-    except ImportError:
-        print(f"[singleshot] trimesh missing — skipping {ply_path.name}")
-        return
-    scene = trimesh.load(str(glb_path), force="scene")
-    pts_list, col_list = [], []
-    for geom in scene.geometry.values():
-        if isinstance(geom, trimesh.points.PointCloud):
-            pts_list.append(np.asarray(geom.vertices))
-            if geom.colors is not None and len(geom.colors):
-                col_list.append(np.asarray(geom.colors)[:, :3])  # drop alpha
-    if not pts_list:
-        print(f"[singleshot] no point cloud in {glb_path.name}")
-        return
-    pts = np.concatenate(pts_list, axis=0)
-    cols = (
-        np.concatenate(col_list, axis=0).astype(np.uint8)
-        if col_list and sum(c.shape[0] for c in col_list) == pts.shape[0]
-        else np.full((pts.shape[0], 3), 200, dtype=np.uint8)
-    )
-    pc = trimesh.points.PointCloud(vertices=pts, colors=cols)
-    pc.export(str(ply_path))
-    print(f"[singleshot] wrote {ply_path.name} ({pts.shape[0]} points)")
 
 
 def _write_pose_files(pred, run_dir: Path) -> None:
@@ -182,7 +149,31 @@ def run_singleshot(cfg: RunConfig) -> Path:
     )
 
     _write_pose_files(pred, run_dir)
-    _glb_to_ply(run_dir / "scene.glb", run_dir / "pointcloud.ply")
+
+    if cfg.export_pointcloud:
+        n = write_pointcloud(
+            pred, cams_per_frame, run_dir / "pointcloud.ply",
+            downsample=cfg.backproj_downsample,
+            conf_percentile=cfg.backproj_conf_percentile,
+            final_voxel=cfg.final_voxel,
+        )
+        print(f"[singleshot] wrote pointcloud.ply ({n:,} pts)")
+    if cfg.export_pointcloud_by_cam:
+        n = write_pointcloud_by_cam(
+            pred, cams_per_frame, run_dir / "pointcloud_by_cam.ply",
+            downsample=cfg.backproj_downsample,
+            conf_percentile=cfg.backproj_conf_percentile,
+            final_voxel=cfg.final_voxel,
+        )
+        print(f"[singleshot] wrote pointcloud_by_cam.ply ({n:,} pts)")
+    if cfg.export_tsdf:
+        n = write_tsdf(
+            pred, run_dir / "pointcloud_tsdf.ply",
+            voxel_length=cfg.tsdf_voxel,
+            sdf_trunc=cfg.tsdf_trunc,
+            conf_percentile=cfg.backproj_conf_percentile,
+        )
+        print(f"[singleshot] wrote pointcloud_tsdf.ply ({n:,} pts)")
 
     write_manifest(
         cfg,
