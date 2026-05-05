@@ -106,6 +106,18 @@ export_tsdf: false               # set true to fuse all views into a TSDF volume
 tsdf_voxel: 0.05                 # metres; smaller = more detail, more RAM
 tsdf_trunc: 0.20                 # metres; surface bandwidth (~ 4*voxel)
 
+# ========================== TSDF fusion (streaming) ==========================
+# Both run AFTER streaming completes; both need save_depth_conf_result=true.
+# Per-chunk: TSDF each chunk's frames in chunk-local coords, transform into
+#   global frame via that chunk's Sim3, save pcd/{i}_pcd_tsdf.ply +
+#   combined_pcd_tsdf.ply. No cross-chunk averaging — useful for inspecting
+#   individual chunks.
+# Global: integrate ALL frames into ONE TSDF volume with globally-aligned w2c
+#   and per-chunk depth scale. Cross-chunk averaging — usually the cleaner
+#   result. Output: pointcloud_tsdf_global.ply.
+tsdf_per_chunk_streaming: false
+tsdf_global_streaming: false
+
 # ========================== diagnostics ==========================
 export_pointcloud_by_cam: false  # writes pointcloud_by_cam.ply (red=front, green=rear, blue=left, yellow=right)
 final_voxel: 0.0                 # optional voxel downsample of merged ply (0=off; 0.02 keeps quality, halves size)

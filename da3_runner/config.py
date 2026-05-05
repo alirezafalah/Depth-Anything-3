@@ -105,6 +105,14 @@ class RunConfig:
     tsdf_voxel: float = 0.05                   # metres; smaller = more detail, more RAM
     tsdf_trunc: float = 0.20                   # metres; surface bandwidth (~ 4×voxel)
 
+    # --- TSDF fusion (streaming) — both run after streaming completes ---
+    # Per-chunk: TSDF each chunk independently, save pcd/{i}_pcd_tsdf.ply + combined_pcd_tsdf.ply.
+    # Cleaner per-chunk artifacts; no cross-chunk averaging.
+    tsdf_per_chunk_streaming: bool = False
+    # Global: integrate ALL frames into ONE TSDF using globally-aligned poses.
+    # Cross-chunk averaging — usually the better quality bump. Output: pointcloud_tsdf_global.ply.
+    tsdf_global_streaming: bool = False
+
     # --- diagnostics ---
     export_pointcloud_by_cam: bool = False     # tinted PLY (red=front, green=rear, blue=left, yellow=right)
     final_voxel: float = 0.0                   # optional voxel downsample of merged ply (0=off)

@@ -823,6 +823,36 @@ class DA3_Streaming:
 
         print(f"Camera intrinsics saved to {intrinsics_path}")
 
+        # Dump chunk metadata so da3_runner can do per-chunk + global TSDF post-processing.
+        meta_path = os.path.join(self.output_dir, "chunk_metadata.npz")
+        chunk_indices = np.array(
+            [r for (r, _) in self.all_camera_poses], dtype=np.int64
+        )
+        chunk_extrinsics = np.array(
+            [e for (_, e) in self.all_camera_poses], dtype=object
+        )
+        chunk_intrinsics = np.array(
+            [k for (_, k) in self.all_camera_intrinsics], dtype=object
+        )
+        # sim3_list has len = n_chunks - 1; prepend identity for chunk 0.
+        sim3_s = [1.0] + [s for (s, _, _) in self.sim3_list]
+        sim3_R = [np.eye(3, dtype=np.float32)] + [R for (_, R, _) in self.sim3_list]
+        sim3_t = [np.zeros(3, dtype=np.float32)] + [t for (_, _, t) in self.sim3_list]
+        np.savez_compressed(
+            meta_path,
+            chunk_indices=chunk_indices,
+            chunk_extrinsics=chunk_extrinsics,
+            chunk_intrinsics=chunk_intrinsics,
+            sim3_s=np.array(sim3_s, dtype=np.float32),
+            sim3_R=np.stack(sim3_R, axis=0).astype(np.float32),
+            sim3_t=np.stack(sim3_t, axis=0).astype(np.float32),
+            overlap=self.overlap,
+            overlap_s=self.overlap_s,
+            overlap_e=self.overlap_e,
+            n_total_frames=len(self.img_list),
+        )
+        print(f"Chunk metadata saved to {meta_path}")
+
         ply_path = os.path.join(self.output_dir, "camera_poses.ply")
         with open(ply_path, "w") as f:
             # Write PLY header
