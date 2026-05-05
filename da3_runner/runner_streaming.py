@@ -49,7 +49,9 @@ def _build_streaming_yaml(cfg: RunConfig, run_dir: Path, kix_npy: Path | None) -
     m.setdefault("IRLS", {})
     m["IRLS"]["delta"] = cfg.irls_delta
     m["IRLS"]["max_iters"] = cfg.irls_max_iters
-    m["IRLS"]["tol"] = cfg.irls_tol
+    # Upstream sim3utils.py does `eval(config["Model"]["IRLS"]["tol"])`, so this
+    # MUST be a string. yaml.safe_dump would otherwise emit "1.0e-09" as a float.
+    m["IRLS"]["tol"] = f"{cfg.irls_tol:.3e}"
     m.setdefault("Pointcloud_Save", {})
     m["Pointcloud_Save"]["sample_ratio"] = cfg.pointcloud_sample_ratio
     m["Pointcloud_Save"]["conf_threshold_coef"] = cfg.pointcloud_conf_coef
