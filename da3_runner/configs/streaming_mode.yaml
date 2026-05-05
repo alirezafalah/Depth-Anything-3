@@ -33,13 +33,6 @@ export_pointcloud: true
 export_3dgs: false
 export_3dgs_video: false
 
-# Streaming TSDF post-processing (both run after streaming completes).
-tsdf_per_chunk_streaming: true   # cleaner per-chunk pcd/{i}_pcd_tsdf.ply + combined_pcd_tsdf.ply
-tsdf_global_streaming: true      # cross-chunk averaging into pointcloud_tsdf_global.ply
-tsdf_voxel: 0.05
-tsdf_trunc: 0.20
-backproj_conf_percentile: 30.0
-
 run_name: ""
 output_root: ""        # empty = write to <dataset_dir>/DA3_output/<run_name>/
 input_root: ""

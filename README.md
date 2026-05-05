@@ -146,26 +146,6 @@ is identical to ours; the quality difference vs. DA3's built-in `scene.glb` is
 **all** in this post-proc step (TSDF fusion + per-view back-projection vs. global
 percentile + 1M-point cap).
 
-### Streaming-mode TSDF (optional)
-
-Streaming has its own two TSDF outputs, both gated by config and both run after
-the streaming pipeline finishes:
-
-| File | Source | Notes |
-|---|---|---|
-| `pcd/{i}_pcd_tsdf.ply`, `combined_pcd_tsdf.ply` | `tsdf_per_chunk_streaming: true` | Per chunk: TSDF the chunk's frames in chunk-local coords, then apply that chunk's Sim3 to bring into the global frame. Cleaner *per-chunk* artifacts, **no cross-chunk averaging**. |
-| `pointcloud_tsdf_global.ply` | `tsdf_global_streaming: true` | One TSDF volume that integrates **every** frame using the globally-aligned `camera_poses.txt` + per-chunk depth scaling. **Cross-chunk averaging** — usually the cleanest result. |
-
-Both require `save_depth_conf_result: true` (default) so `results_output/frame_*.npz`
-is on disk for the post-proc to integrate. They also depend on the patched
-`da3_streaming.py` writing `chunk_metadata.npz` at the end of a run.
-
-Caveat: the per-chunk TSDF only changes the *saved* per-chunk PLY artifacts.
-Streaming's own Sim3 alignment between chunks runs on the dense per-pixel point
-maps DA3 returns (`align_2pcds` at `da3_streaming.py:322`), not on the saved PLYs,
-so per-chunk TSDF does **not** affect alignment quality — only what you can
-inspect afterwards.
-
 ## Intrinsics A/B
 
 Run twice with `use_known_intrinsics: false` then `true`, same everything else.

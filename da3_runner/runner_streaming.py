@@ -105,31 +105,6 @@ def run_streaming(cfg: RunConfig) -> Path:
         except OSError:
             shutil.copy2(combined, link)
 
-    # Optional TSDF post-processing (per-chunk and/or global).
-    if cfg.tsdf_per_chunk_streaming or cfg.tsdf_global_streaming:
-        if not cfg.save_depth_conf_result:
-            print(
-                "[streaming] WARN: TSDF requested but save_depth_conf_result=false; "
-                "results_output/ has no per-frame npz to integrate. Skipping TSDF."
-            )
-        else:
-            from .postprocess_streaming import tsdf_global, tsdf_per_chunk
-
-            if cfg.tsdf_per_chunk_streaming:
-                tsdf_per_chunk(
-                    run_dir,
-                    voxel=cfg.tsdf_voxel,
-                    trunc=cfg.tsdf_trunc,
-                    conf_pct=cfg.backproj_conf_percentile,
-                )
-            if cfg.tsdf_global_streaming:
-                tsdf_global(
-                    run_dir,
-                    voxel=cfg.tsdf_voxel,
-                    trunc=cfg.tsdf_trunc,
-                    conf_pct=cfg.backproj_conf_percentile,
-                )
-
     write_manifest(
         cfg,
         run_dir,
