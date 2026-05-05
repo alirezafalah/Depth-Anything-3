@@ -1,0 +1,29 @@
+# single-shot, 4 cameras, ~30 timestamps (120 frames total).
+dataset_dir: "/home/CW01/uik07077/data/4DGT/ORIGINAL_2026.02.05_at_06.41.13_camera-mi_9060"
+cameras: [front, right, left, rear]
+
+fps_in: 30.0
+fps_out: 5.0           # 1 timestamp every 6 source frames
+duration_seconds: 6.0  # -> 30 timestamps × 4 cams = 120 frames
+start_seconds: 0.0
+
+bumper_blackfill: true
+bumper_rows: [1043, 1160]
+process_res: 504
+process_res_method: upper_bound_resize
+
+mode: singleshot
+model_dir: "depth-anything/DA3NESTED-GIANT-LARGE-1.1"
+
+use_known_intrinsics: false
+
+export_pointcloud: true
+export_3dgs: false
+export_3dgs_video: false
+show_cameras: true
+conf_thresh_percentile: 40.0
+num_max_points: 1000000
+
+run_name: ""
+output_root: "~/data/4DGT/da3_streaming_outputs"
+input_root:  "~/data/4DGT/da3_streaming_inputs"

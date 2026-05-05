@@ -1,0 +1,34 @@
+# streaming, 4 cameras.
+# 15s @ 5fps × 4 cams = 300 frames -> chunk_size=80, overlap=40 (both /4).
+dataset_dir: "/home/CW01/uik07077/data/4DGT/ORIGINAL_2026.02.13_at_04.22.15_camera-mi_9060"
+cameras: [front, right, left, rear]
+
+fps_in: 30.0
+fps_out: 5.0
+duration_seconds: 15.0
+start_seconds: 0.0
+
+bumper_blackfill: true
+bumper_rows: [1043, 1160]
+process_res: 504
+process_res_method: upper_bound_resize
+
+mode: streaming
+streaming_weights_dir: "./weights"
+
+chunk_size: 80
+overlap: 40
+align_method: sim3
+align_lib: torch
+ref_view_strategy: saddle_balanced
+loop_enable: false
+
+use_known_intrinsics: false
+
+export_pointcloud: true
+export_3dgs: false
+export_3dgs_video: false
+
+run_name: ""
+output_root: "~/data/4DGT/da3_streaming_outputs"
+input_root:  "~/data/4DGT/da3_streaming_inputs"

@@ -1,0 +1,99 @@
+# DA3 multi-camera runner — DEFAULT config (with comments + option lists).
+# Copy this file, edit, then run:
+#   python -m da3_runner.cli run da3_runner/configs/<your>.yaml
+# Or override individual fields without editing:
+#   python -m da3_runner.cli run cfg.yaml -o duration_seconds=2 -o fps_out=1
+#
+# Camera-params expectation:
+#   <dataset_dir>/camera_params.json  must exist if either use_known_intrinsics
+#   or use_known_extrinsics is true. Schema:
+#     { "cameras": {
+#         "<cam>": {
+#           "K": [[fx,0,cx],[0,fy,cy],[0,0,1]],
+#           "raw_position_mm":  [x_mm, y_mm, z_mm],     # camera origin in vehicle frame
+#           "raw_rotation_deg": [rx, ry, rz]            # XYZ Euler camera->vehicle, degrees
+#         }, ...
+#     }}
+#   Vehicle frame: X=fwd, Y=left, Z=up (rear-axle origin).
+
+# ========================== dataset ==========================
+dataset_dir: "/home/CW01/uik07077/data/4DGT/ORIGINAL_2026.02.05_at_06.41.13_camera-mi_9060"
+cameras: [front, right, left, rear]   # subset of [front,right,left,rear]; ORDER = interleave order
+
+fps_in: 30.0
+fps_out: 30.0
+duration_seconds: null   # null = whole sequence; otherwise N seconds at fps_out
+start_seconds: 0.0
+
+# ========================== preprocessing ==========================
+bumper_blackfill: true
+bumper_rows: [1043, 1160]   # zeroed on front frames (image is 1160 rows tall)
+process_res: 504            # options: 336, 504 (default), 700, 1024
+process_res_method: upper_bound_resize   # options: upper_bound_resize | lower_bound_resize
+
+# ========================== mode + model ==========================
+mode: singleshot   # options: singleshot | streaming
+
+model_dir: "depth-anything/DA3NESTED-GIANT-LARGE-1.1"
+# Other valid model_dir choices (HF ids):
+#   depth-anything/DA3-LARGE
+#   depth-anything/DA3-BASE
+#   depth-anything/DA3-GIANT
+#   depth-anything/DA3METRIC-LARGE
+#   depth-anything/DA3MONO-LARGE
+streaming_weights_dir: "./weights"   # relative to da3_streaming/
+
+# ========================== streaming-only ==========================
+# Number of chunks ≈ ceil((n_frames - overlap) / (chunk_size - overlap)).
+# E.g. n_frames=3600, chunk_size=200, overlap=80 -> step=120 -> ~30 chunks.
+chunk_size: 120                 # must be a multiple of len(cameras)
+overlap: 60                     # must be < chunk_size and a multiple of len(cameras)
+
+align_method: sim3              # options: sim3 | se3 | scale+se3
+align_lib: torch                # options: torch (GPU) | triton (GPU, needs C compiler) | numba | numpy
+scale_compute_method: auto      # only used when align_method == "scale+se3". options: auto | ransac | weighted
+
+ref_view_strategy: saddle_balanced       # options: saddle_balanced | middle | first | saddle_sim_range
+ref_view_strategy_loop: saddle_balanced  # ref-view picker for loop-closure chunks (loop_enable only)
+loop_enable: false              # SLAM-style loop closure; needs SALAD weights at da3_streaming/weights/dino_salad.ckpt
+
+# IRLS = Iteratively Reweighted Least Squares for the per-pair Sim3 fit.
+# Bigger delta = more outlier-tolerant; more iters = slower but tighter.
+irls_delta: 0.1
+irls_max_iters: 5
+irls_tol: 1.0e-9
+
+# Streaming pointcloud merge (combined_pcd.ply).
+pointcloud_sample_ratio: 0.015   # fraction of pixels kept per frame
+pointcloud_conf_coef: 0.75       # cutoff = mean(conf) * coef
+
+# Streaming debug.
+delete_temp_files: true          # if false, keep _tmp_results_unaligned/_aligned for chunk-alignment debugging
+save_debug_info: false           # adds Sim3 (s, R, T) into per-frame npz files
+save_depth_conf_result: true     # write per-frame {rgb, depth, conf, intrinsics} npz to results_output/
+
+# ========================== intrinsics + extrinsics A/B ==========================
+use_known_intrinsics: false      # use camera_params.json K instead of letting DA3 estimate
+use_known_extrinsics: false      # SINGLE-SHOT ONLY. Assumes static ego car (correct for parking
+                                 # scenes, WRONG for any driving scene). Streaming has no slot for
+                                 # extrinsics — toggle is ignored in streaming mode.
+intrinsics_source: camera_params.json
+extrinsics_source: camera_params.json
+
+# ========================== single-shot extras ==========================
+use_ray_pose: false              # ray-based pose head vs camera decoder; sometimes helps on jittery seqs
+
+# ========================== exports ==========================
+export_pointcloud: true          # writes glb (single-shot) / pointcloud.ply symlink (streaming)
+export_3dgs: false               # writes gs_ply/*.ply; needs gsplat installed and giant/nested model
+export_3dgs_video: false         # writes gs_video/*.mp4; needs gsplat
+export_extras: []                # extra DA3 formats; choose any of: [npz, depth_vis, feat_vis, colmap]
+show_cameras: true               # camera wireframes in glb
+conf_thresh_percentile: 40.0     # GLB only — drop pixels below this confidence percentile
+num_max_points: 1000000          # GLB only — hard cap on points (uniformly downsampled)
+feat_vis_fps: 15                 # output fps if "feat_vis" in export_extras
+
+# ========================== bookkeeping ==========================
+run_name: ""   # empty = auto from scene + mode + cams + fps + duration + priors + chunk/overlap
+output_root: "~/data/4DGT/da3_streaming_outputs"
+input_root:  "~/data/4DGT/da3_streaming_inputs"

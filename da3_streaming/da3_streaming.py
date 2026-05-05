@@ -163,6 +163,18 @@ class DA3_Streaming:
 
         self.delete_temp_files = self.config["Model"]["delete_temp_files"]
 
+        # Optional: caller-provided per-frame intrinsics (N_total, 3, 3) at the
+        # original image resolution. DA3's input_processor handles rescaling.
+        # Path is set via config["Model"]["known_intrinsics_npy"] (added by da3_runner).
+        self.known_intrinsics = None
+        kix_path = self.config["Model"].get("known_intrinsics_npy")
+        if kix_path:
+            self.known_intrinsics = np.load(kix_path)
+            print(
+                f"[DA3_Streaming] loaded known intrinsics from {kix_path}: "
+                f"shape={self.known_intrinsics.shape}"
+            )
+
         print("Loading model...")
 
         with open(self.config["Weights"]["DA3_CONFIG"]) as f:
@@ -270,7 +282,19 @@ class DA3_Streaming:
                 images = chunk_image_paths
                 # images: ['xxx.png', 'xxx.png', ...]
 
-                predictions = self.model.inference(images, ref_view_strategy=ref_view_strategy)
+                # Slice known intrinsics to match this chunk (range_1 [+ range_2]).
+                ix_slice = None
+                if self.known_intrinsics is not None:
+                    parts = [self.known_intrinsics[range_1[0]:range_1[1]]]
+                    if range_2 is not None:
+                        parts.append(self.known_intrinsics[range_2[0]:range_2[1]])
+                    ix_slice = np.concatenate(parts, axis=0).astype(np.float32)
+
+                predictions = self.model.inference(
+                    images,
+                    intrinsics=ix_slice,
+                    ref_view_strategy=ref_view_strategy,
+                )
 
                 predictions.depth = np.squeeze(predictions.depth)
                 predictions.conf -= 1.0
